@@ -37,6 +37,10 @@
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+-> My scheduler mainly considers available minutes per day, task priority, preferred task time, completion status, and whether a task belongs to a specific pet. I also added recurrence rules for daily and weekly tasks so the system keeps generating the next due item after completion.
+
+-> I treated available time and priority as the most important constraints because they directly affect whether a busy pet owner can realistically complete the plan. After that, I used preferred time and pet filtering to make the output feel more organized and useful.
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
@@ -53,10 +57,18 @@
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+-> VS Code Copilot was most effective when I used it for focused tasks like generating starter tests, suggesting sorting logic with `sorted()` and lambda keys, and helping me think through recurring-task behavior and conflict detection. Inline suggestions were especially helpful for docstrings and small method cleanups, while chat worked better for planning algorithms and asking what edge cases I should test.
+
+-> The most helpful prompts were specific and scoped, such as asking for a lightweight conflict detection strategy, a test plan for sorting and recurring tasks, or a cleaner way to format schedule output in the terminal. I got the best results when I asked for one small improvement at a time instead of asking AI to redesign the whole app at once.
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+
+-> One example was when I considered making the conflict detection more "Pythonic" with a shorter grouping approach. I decided not to fully adopt that style because the more compact version was harder to read and explain than my straightforward dictionary-based loop.
+
+-> I evaluated AI suggestions by checking whether they matched my class design, whether they kept responsibilities in the right places, and whether I could verify them with terminal runs or `pytest`. If a suggestion made the code shorter but less clear, I chose readability because I still needed to understand and defend the design.
 
 ---
 
@@ -67,10 +79,16 @@
 - What behaviors did you test?
 - Why were these tests important?
 
+-> I tested task completion, adding tasks to a pet, chronological sorting, recurring daily and weekly task creation, and conflict detection for duplicate times. These behaviors were important because they cover the core promise of the app: storing pet-care tasks, organizing them intelligently, and helping the owner notice problems before following the schedule.
+
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
 - What edge cases would you test next if you had more time?
+
+-> I am fairly confident in the scheduler because the main happy paths and several edge cases are covered by passing tests, and I also verified the behavior through the terminal demo and Streamlit UI. I would rate my confidence as about 4 out of 5.
+
+-> If I had more time, I would test pets with no tasks, owners with no pets, invalid time formats, overlapping durations instead of just exact matching times, and more recurrence edge cases such as completing a task multiple times in a row.
 
 ---
 
@@ -80,10 +98,16 @@
 
 - What part of this project are you most satisfied with?
 
+-> I am most satisfied with how the project grew from a simple class design into a smarter system with sorting, filtering, recurring tasks, conflict warnings, tests, and a Streamlit interface that actually exposes those features to the user.
+
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
 
+-> In another iteration, I would redesign the scheduling logic to respect preferred times more closely instead of mostly building a back-to-back plan. I would also add stronger validation around time input and support richer conflict detection using overlapping durations.
+
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+
+-> My biggest takeaway is that AI works best when I stay the lead architect. Copilot was powerful for suggestions, drafts, and brainstorming, but the project only stayed clean when I kept deciding the class boundaries, checked the outputs, and used separate chat sessions for different phases so design, testing, and UI work did not all blur together.

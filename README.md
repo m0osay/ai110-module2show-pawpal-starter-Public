@@ -1,5 +1,7 @@
 # PawPal+ (Module 2 Project)
 
+<a href="/course_images/ai110/img.png" target="_blank"><img src='/course_images/ai110/img.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+
 You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
 
 ## Scenario
@@ -22,14 +24,17 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
-## Smarter Scheduling
+## Features
 
-PawPal+ now includes a few smarter scheduling features beyond basic task storage:
+PawPal+ includes a small but meaningful scheduling layer designed to help a pet owner stay organized:
 
-- Tasks can be sorted by `HH:MM` time so plans are generated in a consistent order.
-- Tasks can be filtered by pet and completion status to focus on what still needs attention.
-- Daily and weekly recurring tasks automatically create the next occurrence when completed.
-- The scheduler detects lightweight conflicts and prints warnings when multiple tasks request the same time slot.
+- **Sorting by time:** Tasks are ordered by `HH:MM` so the daily plan is generated in chronological order even if tasks were entered out of sequence.
+- **Filtering by pet and status:** The scheduler can focus on one pet at a time and hide completed tasks so the owner sees what still needs attention.
+- **Priority-aware scheduling:** When multiple tasks exist, the planner sorts by time, then priority, then shorter duration to build a more practical daily plan.
+- **Daily and weekly recurrence:** Completing a recurring task automatically creates the next occurrence using the correct next due date.
+- **Conflict warnings:** If two tasks request the same time slot, the scheduler raises a warning instead of failing, helping the owner adjust the schedule.
+- **Skipped-task reporting:** If the owner runs out of available time, unscheduled tasks are recorded and shown instead of disappearing silently.
+- **Readable schedule output:** The app presents sorted task tables, schedule summaries, and warnings through the Streamlit interface.
 
 ## Testing PawPal+
 
