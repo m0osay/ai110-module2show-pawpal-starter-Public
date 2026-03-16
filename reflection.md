@@ -16,7 +16,7 @@
 -> The Output (DailyPlan & ScheduledItem): These take the messy backend logic and turn it into a clean, easy-to-read schedule for the day.
 
 
-**b. Design changes**
+**b. Design changes**       
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
@@ -41,6 +41,8 @@
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
+
+-> One tradeoff is that my conflict detection only checks for exact matching start times, like two tasks both requesting `08:30`, instead of calculating whether task durations overlap. This is reasonable for the current version because it keeps the logic lightweight, easy to debug, and clear for a classroom-sized project, while still catching the most obvious scheduling conflicts a pet owner would want warned about.
 
 ---
 

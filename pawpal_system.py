@@ -3,6 +3,7 @@ PawPal+ — Logic Layer
 Backend classes for the pet care scheduling system.
 """
 
+from datetime import date, timedelta
 from dataclasses import dataclass, field
 from typing import List, Optional
 
@@ -36,6 +37,7 @@ class Task:
     duration_minutes: int = 15
     priority: str = "medium"
     category: str = "general"
+    due_date: date = field(default_factory=date.today)
 
     def __post_init__(self) -> None:
         """Validate task values after the dataclass initializes."""
@@ -50,9 +52,22 @@ class Task:
         """Compatibility alias for older UI/code that still uses title."""
         return self.description
 
-    def mark_complete(self) -> None:
-        """Mark this task as done."""
+    def mark_complete(self) -> Optional["Task"]:
+        """Mark a task complete and return the next recurring instance when applicable."""
         self.completed = True
+        next_due_date = self._get_next_due_date()
+        if next_due_date is None:
+            return None
+
+        return Task(
+            description=self.description,
+            time=self.time,
+            frequency=self.frequency,
+            duration_minutes=self.duration_minutes,
+            priority=self.priority,
+            category=self.category,
+            due_date=next_due_date,
+        )
 
     def mark_incomplete(self) -> None:
         """Mark this task as not done yet."""
@@ -70,9 +85,18 @@ class Task:
         """Return a human-readable description of the task."""
         status = "done" if self.completed else "pending"
         return (
-            f"{self.description} at {self.time} "
+            f"{self.description} at {self.time} on {self.due_date.isoformat()} "
             f"({self.frequency}, {self.priority} priority, {status})"
         )
+
+    def _get_next_due_date(self) -> Optional[date]:
+        """Calculate the next due date for daily or weekly tasks."""
+        frequency = self.frequency.lower()
+        if frequency == "daily":
+            return self.due_date + timedelta(days=1)
+        if frequency == "weekly":
+            return self.due_date + timedelta(weeks=1)
+        return None
 
 
 @dataclass
@@ -107,6 +131,17 @@ class Pet:
             if task.description == description:
                 return task
         return None
+
+    def mark_task_complete(self, description: str) -> Optional[Task]:
+        """Complete one named task and append its next recurring occurrence if needed."""
+        task = self.get_task(description)
+        if task is None:
+            return None
+
+        next_task = task.mark_complete()
+        if next_task is not None:
+            self.add_task(next_task)
+        return next_task
 
 
 class Owner:
@@ -188,6 +223,7 @@ class DailyPlan:
         self.pet_name = pet_name
         self.items: List[ScheduledItem] = []
         self.skipped_tasks: List[tuple[str, Task]] = []
+        self.warnings: List[str] = []
         self.total_minutes_used: int = 0
         self.summary: str = ""
 
@@ -199,6 +235,10 @@ class DailyPlan:
     def add_skipped(self, pet_name: str, task: Task) -> None:
         """Record a task that was excluded from the plan."""
         self.skipped_tasks.append((pet_name, task))
+
+    def add_warning(self, warning: str) -> None:
+        """Record a non-fatal scheduling warning."""
+        self.warnings.append(warning)
 
     def display(self) -> str:
         """Return the full plan as a formatted string."""
@@ -217,6 +257,9 @@ class DailyPlan:
                 f"{pet_name}: {task.description}" for pet_name, task in self.skipped_tasks
             )
             lines.append(f"Skipped (time ran out): {skipped}")
+
+        if self.warnings:
+            lines.extend(f"Warning: {warning}" for warning in self.warnings)
 
         if self.summary:
             lines.extend(["-" * 40, self.summary])
@@ -253,6 +296,19 @@ class Scheduler:
             return []
         return [(pet.name, task) for task in pet.get_tasks(include_completed=include_completed)]
 
+    def filter_tasks_by(
+        self,
+        pet_name: Optional[str] = None,
+        include_completed: bool = True,
+    ) -> List[tuple[str, Task]]:
+        """Return tasks filtered by optional pet name and completion status."""
+        tasks = (
+            self.get_tasks_for_pet(pet_name, include_completed=include_completed)
+            if pet_name is not None
+            else self.get_all_tasks(include_completed=include_completed)
+        )
+        return tasks
+
     def filter_tasks(
         self,
         tasks: List[tuple[str, Task]],
@@ -279,12 +335,37 @@ class Scheduler:
         return sorted(
             tasks,
             key=lambda entry: (
-                entry[1].time,
+                self._time_to_minutes(entry[1].time),
                 -entry[1].get_priority_value(),
                 entry[1].duration_minutes,
                 entry[0],
             ),
         )
+
+    def sort_by_time(self, tasks: List[Task]) -> List[Task]:
+        """Return Task objects ordered by their HH:MM time value."""
+        return sorted(tasks, key=lambda task: self._time_to_minutes(task.time))
+
+    def detect_conflicts(self, tasks: List[tuple[str, Task]]) -> List[str]:
+        """Return warning messages when multiple tasks request the same time slot."""
+        warnings: List[str] = []
+        tasks_by_time: dict[str, List[tuple[str, Task]]] = {}
+
+        for pet_name, task in tasks:
+            tasks_by_time.setdefault(task.time, []).append((pet_name, task))
+
+        for time_value, grouped_tasks in tasks_by_time.items():
+            if len(grouped_tasks) < 2:
+                continue
+
+            descriptions = ", ".join(
+                f"{pet_name}: {task.description}" for pet_name, task in grouped_tasks
+            )
+            warnings.append(
+                f"Multiple tasks share {time_value}: {descriptions}."
+            )
+
+        return warnings
 
     def build_plan(
         self,
@@ -303,6 +384,9 @@ class Scheduler:
         plan_label = pet_name if pet_name is not None else "All Pets"
         plan = DailyPlan(owner_name=self.owner.name, pet_name=plan_label)
         candidates = self.sort_tasks(self.filter_tasks(tasks, threshold=threshold, frequency=frequency))
+
+        for warning in self.detect_conflicts(candidates):
+            plan.add_warning(warning)
 
         time_remaining = self.owner.available_minutes_per_day
         current_minutes = start_hour * 60
@@ -355,6 +439,9 @@ class Scheduler:
             )
             summary += f" Skipped because time ran out: {skipped}."
 
+        if plan.warnings:
+            summary += " Warnings: " + " ".join(plan.warnings)
+
         return summary
 
     @staticmethod
@@ -363,3 +450,9 @@ class Scheduler:
         hour = total_minutes // 60
         minute = total_minutes % 60
         return f"{hour:02d}:{minute:02d}"
+
+    @staticmethod
+    def _time_to_minutes(time_value: str) -> int:
+        """Convert an HH:MM string into total minutes for sorting and comparisons."""
+        hour_text, minute_text = time_value.split(":", maxsplit=1)
+        return int(hour_text) * 60 + int(minute_text)
