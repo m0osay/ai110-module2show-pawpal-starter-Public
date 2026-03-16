@@ -1,6 +1,6 @@
 # PawPal+ (Module 2 Project)
 
-<a href="/course_images/ai110/img.png" target="_blank"><img src='/course_images/ai110/img.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+<a href="img.png" target="_blank"><img src="img.png" title="PawPal App" alt="PawPal App" width="900" /></a>
 
 You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
 
