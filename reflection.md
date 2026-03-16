@@ -7,11 +7,27 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+-> The Basics (Task & Pet): These are the building blocks, storing everything from a pet's age to whether a walk was "high priority" or "low priority."
+
+-> The Hub (Owner): This represents the user, keeping track of their pets and how much free time they have in a day.
+
+-> The Brain (Scheduler): This is where the logic lives. it sifts through all the tasks and picks the most important ones that fit into the owner's schedule.
+
+-> The Output (DailyPlan & ScheduledItem): These take the messy backend logic and turn it into a clean, easy-to-read schedule for the day.
+
+
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
 
+-> The initial DailyPlan lacked metadata. By passing the owner and pet context into the object, I made the generated summaries much more descriptive and useful for a multi-pet household.
+
+-> I moved away from "silently dropping" tasks that exceeded the time limit. By capturing those skipped items in a new field, I made the explain_plan() method significantly more robust and honest.
+
+->To make the schedule more efficient, I refined the sort key. Instead of just sorting by priority, it now handles equal priorities by duration, favoring "quick wins" to maximize the number of tasks completed.
+
+->I identified a potential bug where the scheduler was caching available_time. I fixed this by ensuring the logic fetches the owner's time directly from the source during the build process, preventing synchronization issues.
 ---
 
 ## 2. Scheduling Logic and Tradeoffs

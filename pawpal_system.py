@@ -82,8 +82,11 @@ class Owner:
 
 
 class DailyPlan:
-    def __init__(self) -> None:
+    def __init__(self, owner_name: str = "", pet_name: str = "") -> None:
+        self.owner_name = owner_name
+        self.pet_name = pet_name
         self.items: List[ScheduledItem] = []
+        self.skipped_tasks: List[Task] = []   # tasks that didn't fit
         self.total_minutes_used: int = 0
         self.summary: str = ""
 
@@ -92,12 +95,20 @@ class DailyPlan:
         self.items.append(item)
         self.total_minutes_used += item.task.duration_minutes
 
+    def add_skipped(self, task: Task) -> None:
+        """Record a task that was excluded from the plan."""
+        self.skipped_tasks.append(task)
+
     def display(self) -> str:
         """Return the full plan as a formatted string."""
+        header = f"Daily Plan for {self.pet_name} (owner: {self.owner_name}, {self.total_minutes_used} min total)"
         if not self.items:
             return "No tasks scheduled for today."
-        lines = [f"Daily Plan ({self.total_minutes_used} min total)", "-" * 40]
+        lines = [header, "-" * 40]
         lines += [item.display() for item in self.items]
+        if self.skipped_tasks:
+            skipped = ", ".join(t.title for t in self.skipped_tasks)
+            lines += [f"Skipped (time ran out): {skipped}"]
         if self.summary:
             lines += ["-" * 40, self.summary]
         return "\n".join(lines)
@@ -110,8 +121,8 @@ class Scheduler:
         self.available_time = owner.available_minutes_per_day
 
     def sort_tasks(self, tasks: List[Task]) -> List[Task]:
-        """Return tasks sorted highest priority first."""
-        return sorted(tasks, key=lambda t: t.get_priority_value(), reverse=True)
+        """Return tasks sorted highest priority first; break ties by shortest duration first."""
+        return sorted(tasks, key=lambda t: (-t.get_priority_value(), t.duration_minutes))
 
     def filter_by_priority(self, threshold: str = "low") -> List[Task]:
         """Return only incomplete tasks at or above the given priority threshold."""
@@ -121,39 +132,43 @@ class Scheduler:
     def build_plan(self) -> DailyPlan:
         """
         Build a daily plan that fits within the owner's available time.
-        Tasks are picked in priority order until time runs out.
+        Tasks are picked highest-priority first; ties broken by shortest duration.
         """
-        plan = DailyPlan()
+        plan = DailyPlan(owner_name=self.owner.name, pet_name=self.pet.name)
         candidates = self.sort_tasks(self.filter_by_priority("low"))
-        time_remaining = self.available_time
+        time_remaining = self.owner.available_minutes_per_day  # always read live
 
-        # Simple start at 8:00 AM and pack tasks back-to-back
-        current_hour, current_minute = 8, 0
+        # Pack tasks back-to-back starting at 8:00 AM
+        current_minutes = 8 * 60
 
         for task in candidates:
             if task.duration_minutes > time_remaining:
-                continue  # skip tasks that no longer fit
+                plan.add_skipped(task)
+                continue
 
-            start = f"{current_hour:02d}:{current_minute:02d}"
-            total_minutes = current_hour * 60 + current_minute + task.duration_minutes
-            end = f"{total_minutes // 60:02d}:{total_minutes % 60:02d}"
+            start = f"{current_minutes // 60:02d}:{current_minutes % 60:02d}"
+            end_minutes = current_minutes + task.duration_minutes
+            end = f"{end_minutes // 60:02d}:{end_minutes % 60:02d}"
             reason = f"priority={task.priority}, fits in remaining {time_remaining} min"
 
             plan.add_item(ScheduledItem(task=task, start_time=start, end_time=end, reason=reason))
-
-            current_hour, current_minute = total_minutes // 60, total_minutes % 60
+            current_minutes = end_minutes
             time_remaining -= task.duration_minutes
 
         plan.summary = self.explain_plan(plan)
         return plan
 
     def explain_plan(self, plan: DailyPlan) -> str:
-        """Generate a plain-language summary of why tasks were chosen."""
+        """Generate a plain-language summary of why tasks were chosen and what was skipped."""
         if not plan.items:
             return "No tasks fit within the available time today."
         chosen = ", ".join(item.task.title for item in plan.items)
-        return (
+        explanation = (
             f"{self.owner.name} has {self.owner.available_minutes_per_day} min available today. "
             f"Scheduled for {self.pet.name}: {chosen}. "
-            f"Tasks were ordered by priority (high → low) and packed until time ran out."
+            f"Tasks were ordered by priority (high → low), with shorter tasks first when priorities tied."
         )
+        if plan.skipped_tasks:
+            skipped = ", ".join(t.title for t in plan.skipped_tasks)
+            explanation += f" Skipped because time ran out: {skipped}."
+        return explanation
