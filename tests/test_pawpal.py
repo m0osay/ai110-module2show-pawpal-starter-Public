@@ -2,7 +2,7 @@
 
 from datetime import date
 
-from pawpal_system import Pet, Task
+from pawpal_system import Owner, Pet, Scheduler, Task
 
 
 def test_mark_complete_changes_task_status() -> None:
@@ -55,3 +55,36 @@ def test_mark_task_complete_creates_next_weekly_occurrence() -> None:
 
     assert next_task is not None
     assert next_task.due_date == date(2026, 3, 22)
+
+
+def test_sort_by_time_returns_tasks_in_chronological_order() -> None:
+    owner = Owner(name="Jordan", available_minutes_per_day=60)
+    scheduler = Scheduler(owner)
+    tasks = [
+        Task(description="Lunch", time="12:00", frequency="daily"),
+        Task(description="Morning walk", time="08:00", frequency="daily"),
+        Task(description="Medication", time="09:30", frequency="daily"),
+    ]
+
+    sorted_tasks = scheduler.sort_by_time(tasks)
+
+    assert [task.time for task in sorted_tasks] == ["08:00", "09:30", "12:00"]
+
+
+def test_detect_conflicts_flags_duplicate_task_times() -> None:
+    owner = Owner(name="Jordan", available_minutes_per_day=60)
+    luna = Pet(name="Luna", species="Dog", age=4)
+    mochi = Pet(name="Mochi", species="Cat", age=2)
+
+    luna.add_task(Task(description="Breakfast", time="08:30", frequency="daily"))
+    mochi.add_task(Task(description="Play session", time="08:30", frequency="daily"))
+    owner.add_pet(luna)
+    owner.add_pet(mochi)
+
+    scheduler = Scheduler(owner)
+    conflicts = scheduler.detect_conflicts(scheduler.get_all_tasks())
+
+    assert len(conflicts) == 1
+    assert "08:30" in conflicts[0]
+    assert "Luna: Breakfast" in conflicts[0]
+    assert "Mochi: Play session" in conflicts[0]
