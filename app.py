@@ -1,17 +1,17 @@
 import streamlit as st
 
+from pawpal_system import Owner, Pet, Scheduler, Task
+
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
 st.title("🐾 PawPal+")
 
 st.markdown(
     """
-Welcome to the PawPal+ starter app.
+PawPal+ helps pet owners turn care tasks into a clear daily plan.
 
-This file is intentionally thin. It gives you a working Streamlit app so you can start quickly,
-but **it does not implement the project logic**. Your job is to design the system and build it.
-
-Use this app as your interactive demo once your backend classes/functions exist.
+Use the form below to add tasks for a pet, then generate a schedule based on
+available time and task priority.
 """
 )
 
@@ -38,29 +38,44 @@ At minimum, your system should:
 
 st.divider()
 
-st.subheader("Quick Demo Inputs (UI only)")
+st.subheader("Owner and Pet")
 owner_name = st.text_input("Owner name", value="Jordan")
+available_minutes = st.number_input(
+    "Available minutes today", min_value=1, max_value=720, value=45
+)
 pet_name = st.text_input("Pet name", value="Mochi")
 species = st.selectbox("Species", ["dog", "cat", "other"])
+pet_age = st.number_input("Pet age", min_value=0, max_value=40, value=3)
 
 st.markdown("### Tasks")
-st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
+st.caption("Add a few care tasks, then build a schedule.")
 
 if "tasks" not in st.session_state:
     st.session_state.tasks = []
 
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 with col1:
-    task_title = st.text_input("Task title", value="Morning walk")
+    task_description = st.text_input("Task description", value="Morning walk")
+    task_time = st.text_input("Preferred time", value="08:00")
 with col2:
     duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
-with col3:
-    priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
+    frequency = st.selectbox("Frequency", ["daily", "weekly", "as needed"], index=0)
+
+priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
 
 if st.button("Add task"):
     st.session_state.tasks.append(
-        {"title": task_title, "duration_minutes": int(duration), "priority": priority}
+        {
+            "description": task_description,
+            "time": task_time,
+            "frequency": frequency,
+            "duration_minutes": int(duration),
+            "priority": priority,
+        }
     )
+
+if st.button("Clear tasks"):
+    st.session_state.tasks = []
 
 if st.session_state.tasks:
     st.write("Current tasks:")
@@ -71,18 +86,34 @@ else:
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.caption("This uses your backend classes in `pawpal_system.py`.")
 
 if st.button("Generate schedule"):
-    st.warning(
-        "Not implemented yet. Next step: create your scheduling logic (classes/functions) and call it here."
-    )
-    st.markdown(
-        """
-Suggested approach:
-1. Design your UML (draft).
-2. Create class stubs (no logic).
-3. Implement scheduling behavior.
-4. Connect your scheduler here and display results.
-"""
-    )
+    if not st.session_state.tasks:
+        st.warning("Add at least one task before generating a schedule.")
+    else:
+        owner = Owner(name=owner_name, available_minutes_per_day=int(available_minutes))
+        pet = Pet(name=pet_name, species=species, age=int(pet_age))
+
+        for item in st.session_state.tasks:
+            pet.add_task(
+                Task(
+                    description=item["description"],
+                    time=item["time"],
+                    frequency=item["frequency"],
+                    duration_minutes=item["duration_minutes"],
+                    priority=item["priority"],
+                )
+            )
+
+        owner.add_pet(pet)
+        plan = Scheduler(owner).build_plan()
+
+        st.success("Schedule generated.")
+        st.text(plan.display())
+        st.markdown("### Summary")
+        st.write(plan.summary)
+        if plan.skipped_tasks:
+            st.markdown("### Skipped tasks")
+            for skipped_pet_name, skipped_task in plan.skipped_tasks:
+                st.write(f"- {skipped_pet_name}: {skipped_task.description}")
